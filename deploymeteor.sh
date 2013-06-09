@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ ! -z "$1" ]; then
+if [ -z "$1" ]; then
 	echo "Usage: deploymeteor <environment>"
 	echo "For example, type deploymeteor staging to deploy to a staging environment. This environment will be created and initialized on the remote server and added as a remote repository for this git repository."
 	exit 1
