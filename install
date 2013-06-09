@@ -1,15 +1,15 @@
 #!/bin/sh
 
-INSTALL_DIR="$HOME/.meteoric.sh"
+INSTALL_DIR="$HOME/.deploymeteor"
 
 if [ ! -d "$INSTALL_DIR" ];
 then
-	git clone http://github.com/julien-c/meteoric.sh.git "$INSTALL_DIR"
+	git clone http://github.com/aldeed/deploymeteor.git "$INSTALL_DIR"
 else
 	git pull "$INSTALL_DIR"
 fi
 
-if [ ! -f /usr/local/bin/meteoric ];
+if [ ! -f /usr/local/bin/deploymeteor ];
 then
-	ln -s "$INSTALL_DIR/meteoric.sh" /usr/local/bin/meteoric
+	ln -s "$INSTALL_DIR/deploymeteor.sh" /usr/local/bin/deploymeteor
 fi

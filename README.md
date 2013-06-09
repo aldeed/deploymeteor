@@ -1,55 +1,32 @@
-# Meteoric
+# deploymeteor
 
-Deploy Meteor on EC2 (or your own server)
+The deploymeteor script makes it as easy as possible to deploy a meteor app to a standard Amazon EC2 server running the latest Amazon Linux AMI.
 
-## How to install and update
+## Install deploymeteor
 
-The easiest way to install (or update) `meteoric` is using curl:
-
-```bash
-$ curl https://raw.github.com/julien-c/meteoric.sh/master/install | sh
-```
-
-You may need to `sudo` in order for the script to symlink `meteoric` to your `/usr/local/bin`.
-
-## How to use
-
-Create a conf file named `meteoric.config.sh` in your project's folder, setting the following environment variables:
+Just run command in your terminal on Mac/Linux:
 
 ```bash
-# IP or URL of the server you want to deploy to
-APP_HOST=example.com
-
-# Comment this if your host is not an EC2 instance
-EC2_PEM_FILE=~/.ssh/your-aws-certif.pem
-
-# What's your project's Git repo?
-GIT_URL=git://github.com/SachaG/Microscope.git
-
-# Does your project use meteorite, or plain meteor?
-METEORITE=true
-
-# What's your app name?
-APP_NAME=microscope
+$ sudo -H curl https://raw.github.com/aldeed/deploymeteor/master/install | sh
 ```
 
-Then just run:
+## Prerequisites
+
+1. Launch a new EC2 server and make note of its hostname. You can deploy multiple meteor apps/websites to this one server.
+2. Before deploying each app, make sure that the app's directory is under git version control:
 
 ```bash
-$ meteoric setup
-
-$ meteoric deploy
+$ git init
 ```
 
-## Tested on
+## Deploy an App the First Time
 
-- Ubuntu 13.04
-- Ubuntu 12.10
+Assuming the app directory is under git version control and you've committed all your changes, just run one command and answer the prompts:
 
-## Inspiration
+```bash
+$ deploymeteor setup
+```
 
-Hat tip to @netmute for his [meteor.sh script](https://github.com/netmute/meteor.sh). In our case though, we think having to rebuild native packages like `fibers` kind of defeats the whole point of bundling the Meteor app. Additionally, our approach enables hot code fixes (you don't have to stop/start your node server, and your users' apps shouldn't be disrupted).
+## Thanks
 
-This script is also based on this previous post: [How to deploy Meteor on Amazon EC2](http://julien-c.fr/2012/10/meteor-amazon-ec2/).
-
-Cheers!
+Thanks to the creators of meteoric.sh and http://toroid.org/ams/git-website-howto.
