@@ -6,7 +6,8 @@ if [ ! -d "$INSTALL_DIR" ];
 then
 	git clone http://github.com/aldeed/deploymeteor.git "$INSTALL_DIR"
 else
-	git pull "$INSTALL_DIR"
+	cd "$INSTALL_DIR"
+	git pull
 fi
 
 if [ ! -f /usr/local/bin/deploymeteor ];
