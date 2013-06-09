@@ -11,5 +11,5 @@ fi
 
 if [ ! -f /usr/local/bin/deploymeteor ];
 then
-	ln -s "$INSTALL_DIR/deploymeteor.sh" /usr/local/bin/deploymeteor
+	sudo ln -s "$INSTALL_DIR/deploymeteor.sh" /usr/local/bin/deploymeteor
 fi
