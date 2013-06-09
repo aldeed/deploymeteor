@@ -1,9 +1,16 @@
 #!/bin/bash
 
+if [ ! -z "$1" ]; then
+	echo "Usage: deploymeteor <environment>"
+	echo "For example, type deploymeteor staging to deploy to a staging environment. This environment will be created and initialized on the remote server and added as a remote repository for this git repository."
+	exit 1
+fi
+
 ##make sure git init has been run
 if [ ! -d ".git" ]; then
-	echo "Please run 'git init' first"
-	exit 1
+	git init
+	git add .
+	git commit -a -m "Initial commit"
 fi
 
 APP_NAME=${PWD##*/}
@@ -11,12 +18,16 @@ APP_NAME=${PWD##*/}
 #prompt for needed info
 read -e -p "Enter the hostname or IP address of the Amazon Linux EC2 server (e.g., 11.111.11.111 or ec2-11-111-11-111.us-west-2.compute.amazonaws.com): " APP_HOST
 read -e -p "Enter the path to your EC2 .pem file on this machine: " EC2_PEM_FILE
-read -e -p "Enter the root URL for this website, as users will access it, including protocol (e.g., http://mysite.com or https://mysite.com): " ROOT_URL
-read -e -p "Enter the port on which to host this website: " PORT -i "80"
-read -e -p "Enter the hostname or IP address of the server hosting your MongoDB database: " MONGO_HOST -i "localhost"
-read -e -p "Enter the port through which your MongoDB database is accessible: " MONGO_PORT -i "27017"
-read -e -p "Enter the name of your MongoDB database: " MONGO_DBNAME -i "$APP_NAME"
-
+read -e -p "Enter the root URL for this website, as users will access it, including protocol (e.g., http://mysite.com or https://mysite.com) (default: http://$APP_HOST): " ROOT_URL
+ROOT_URL=${ROOT_URL:-http://$APP_HOST}
+read -e -p "Enter the port on which to host this website: " PORT
+PORT=${PORT:-80}
+read -e -p "Enter the hostname or IP address of the server hosting your MongoDB database: " MONGO_HOST
+MONGO_HOST=${MONGO_HOST:-localhost}
+read -e -p "Enter the port through which your MongoDB database is accessible: " MONGO_PORT 
+MONGO_PORT =${MONGO_PORT:-27017}
+read -e -p "Enter the name of your MongoDB database: " MONGO_DBNAME
+MONGO_DBNAME=${MONGO_DBNAME:$APP_NAME}
 APP_DIR=/home/meteor
 LOG_DIR=$APP_DIR/logs/$APP_NAME/
 BUNDLE_DIR=$APP_DIR/bundles/$APP_NAME/
@@ -57,24 +68,6 @@ ENDCAT;
 chmod +x hooks/post-receive;
 "
 
-case "$1" in
-setup)
-	ssh $SSH_OPT $SSH_HOST $SETUP;
-	git remote add web ssh://$SSH_HOST$APP_DIR/$APP_NAME.git;
-	git push web +master:refs/heads/master;
-	;;
-deploy)
-	ssh $SSH_OPT $SSH_HOST $DEPLOY
-	;;
-*)
-	cat <<ENDCAT
-deploymeteor [action]
-
-Available actions:
-
-setup   - Install a meteor environment on a fresh Amazon Linux EC2 server
-deploy  - Deploy the app to the server
-ENDCAT
-	;;
-esac
-
+ssh $SSH_OPT $SSH_HOST $SETUP;
+git remote add $1 ssh://$SSH_HOST$APP_DIR/$APP_NAME.git;
+git push $1 +master:refs/heads/master;

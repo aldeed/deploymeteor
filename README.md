@@ -16,6 +16,7 @@ $ sudo -H curl https://raw.github.com/aldeed/deploymeteor/master/install | sh
 2. Before deploying each app, make sure that the app's directory is under git version control:
 
 ```bash
+$ cd /my/app/directory
 $ git init
 ```
 
@@ -24,8 +25,11 @@ $ git init
 Assuming the app directory is under git version control and you've committed all your changes, just run one command and answer the prompts:
 
 ```bash
-$ deploymeteor setup
+$ cd /my/app/directory
+$ deploymeteor <env>
 ```
+
+Replace <env> with whatever you want to call the environment. This environment will be created and initialized on the remote server and added as a remote repository for this git repository.
 
 ## Thanks
 
