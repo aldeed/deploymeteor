@@ -18,15 +18,27 @@ APP_NAME=${PWD##*/}
 #prompt for needed info
 read -e -p "Enter the hostname or IP address of the Amazon Linux EC2 server (e.g., 11.111.11.111 or ec2-11-111-11-111.us-west-2.compute.amazonaws.com): " APP_HOST
 read -e -p "Enter the path to your EC2 .pem file on this machine: " EC2_PEM_FILE
-read -e -p "Enter the root URL for this website, as users will access it, including protocol (e.g., http://mysite.com or https://mysite.com) (default: http://$APP_HOST): " ROOT_URL
+echo "Enter the root URL for this website, as users will access it, including protocol."
+echo "Examples: http://mysite.com or https://mysite.com"
+echo "Default (press ENTER): http://$APP_HOST"
+read -e -p "Root URL: " ROOT_URL
 ROOT_URL=${ROOT_URL:-http://$APP_HOST}
-read -e -p "Enter the port on which to host this website: " PORT
+echo "Enter the port on which to host this website."
+echo "Examples: 8080 or 3001"
+echo "Default (press ENTER): 80"
+read -e -p "Port: " PORT
 PORT=${PORT:-80}
-read -e -p "Enter the hostname or IP address of the server hosting your MongoDB database: " MONGO_HOST
+echo "Enter the hostname or IP address of the server hosting your MongoDB database."
+echo "Default (press ENTER): localhost"
+read -e -p "MongoDB host: " MONGO_HOST
 MONGO_HOST=${MONGO_HOST:-localhost}
-read -e -p "Enter the port through which your MongoDB database is accessible: " MONGO_PORT 
-MONGO_PORT =${MONGO_PORT:-27017}
-read -e -p "Enter the name of your MongoDB database: " MONGO_DBNAME
+echo "Enter the port through which your MongoDB database is accessible."
+echo "Default (press ENTER): 27017"
+read -e -p "MongoDB port: " MONGO_PORT 
+MONGO_PORT=${MONGO_PORT:-27017}
+echo "Enter the name of your MongoDB database."
+echo "Default (press ENTER): $APP_NAME"
+read -e -p "MongoDB database: " MONGO_DBNAME
 MONGO_DBNAME=${MONGO_DBNAME:$APP_NAME}
 APP_DIR=/home/meteor
 LOG_DIR=$APP_DIR/logs/$APP_NAME/
