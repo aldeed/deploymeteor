@@ -109,17 +109,19 @@ echo "Format: smtp://<username>:<password>@<ip or hostname>:<port>"
 read -e -p "E-mail URL: " MAIL_URL
 echo
 
-GIT_APP_DIR=$APPS_DIR/$APP_NAME/git
-WWW_APP_DIR=$APPS_DIR/$APP_NAME/www
-LOG_DIR=$APPS_DIR/$APP_NAME/logs
-BUNDLE_DIR=$APPS_DIR/$APP_NAME/bundle
-ROOT_URL=http://$APP_HOST
+APP_DIR=$APPS_DIR/$APP_NAME
+GIT_APP_DIR=$APP_DIR/git
+WWW_APP_DIR=$APP_DIR/www
+TMP_APP_DIR=$APP_DIR/bundletmp
+LOG_DIR=$APP_DIR/logs
+BUNDLE_DIR=$APP_DIR/bundle
 
 ENVSETUP="
-mkdir -p $APPS_DIR/$APP_NAME;
+mkdir -p $APP_DIR;
 rm -rf $GIT_APP_DIR;
 mkdir -p $GIT_APP_DIR/hooks;
 mkdir -p $WWW_APP_DIR;
+mkdir -p $TMP_APP_DIR;
 mkdir -p $LOG_DIR;
 mkdir -p $BUNDLE_DIR;
 cd $GIT_APP_DIR;
@@ -141,19 +143,33 @@ echo "Setting up git deployment for the $1 environment of $APP_NAME"
 ssh -t $SSH_OPT $SSH_HOST $ENVSETUP
 cat > tmp-post-receive <<ENDCAT
 #!/bin/sh
-GIT_WORK_TREE=$WWW_APP_DIR git checkout -f
-cd $WWW_APP_DIR
+if [ -d "$TMP_APP_DIR" ]; then
+	rm -r $TMP_APP_DIR
+fi
+mkdir -p $TMP_APP_DIR
+GIT_WORK_TREE="$TMP_APP_DIR" git checkout -f
+cd $TMP_APP_DIR
 mrt bundle $APPS_DIR/$APP_NAME/bundle.tgz
 cd $APPS_DIR/$APP_NAME
+if [ -d "$TMP_APP_DIR" ]; then
+	rm -r $TMP_APP_DIR
+fi
+if [ -d "bundle" ]; then
+	rm -r bundle
+fi
 tar -zxvf bundle.tgz
 rm bundle.tgz
 #rebuild fibers
 cd $BUNDLE_DIR/server/node_modules
 rm -r fibers
 npm install fibers@1.0.0
-#set up variables
-cd $BUNDLE_DIR
-sudo PORT=$PORT ROOT_URL="$ROOT_URL" MONGO_URL="$MONGO_URL" MAIL_URL="$MAIL_URL" forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a main.js
+#update www files
+cp -R $BUNDLE_DIR/* $WWW_APP_DIR
+if [ -d "$BUNDLE_DIR" ]; then
+	rm -r $BUNDLE_DIR
+fi
+sudo forever stop $WWW_APP_DIR/main.js
+sudo PORT=$PORT ROOT_URL=$ROOT_URL MONGO_URL=$MONGO_URL MAIL_URL=$MAIL_URL forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a $WWW_APP_DIR/main.js
 ENDCAT
 scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive
 rm tmp-post-receive
