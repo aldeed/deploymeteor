@@ -27,7 +27,7 @@ $ cd /my/app/directory
 $ deploymeteor <env>
 ```
 
-Replace <env> with whatever you want to call the environment, and answer all the prompts. This environment will be created and initialized on the remote server and added as a remote repository for this git repository.
+Replace &lt;env&gt; with whatever you want to call the environment, and answer all the prompts. This environment will be created and initialized on the remote server and added as a remote repository for this git repository.
 
 If the current directory isn't already under git version control when you run deploymeteor, the script initializes the git repo for you, adds all files, and does an initial commit.
 
@@ -41,7 +41,7 @@ After that first run, simply push to the correct remote env to deploy the curren
 $ git push <env>
 ```
 
-Where <env> is the same thing you entered when initially running deploymeteor. The initial `git push` is done for you during the deploymeteor script, so you don't need to do it again until you've made and committed more changes.
+Where &lt;env&gt; is the same thing you entered when initially running deploymeteor. The initial `git push` is done for you during the deploymeteor script, so you don't need to do it again until you've made and committed more changes.
 
 ## How it Works
 
@@ -49,4 +49,4 @@ deploymeteor sets up a git post-receive hook script on the remote repository. Ev
 
 ## Thanks
 
-Thanks to @julien-c for [https://github.com/julien-c/meteoric.sh meteoric.sh] and credit to [http://toroid.org/ams/git-website-howto this post].
+Thanks to @julien-c for [meteoric.sh](https://github.com/julien-c/meteoric.sh) and credit to [this post](http://toroid.org/ams/git-website-howto).
