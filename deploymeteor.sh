@@ -1,5 +1,7 @@
 #!/bin/bash
 
+NODE_VERSION=0.10.12
+
 if [ -z "$1" ]; then
 	echo
 	echo "Usage: deploymeteor <environment>"
@@ -10,29 +12,6 @@ if [ -z "$1" ]; then
 fi
 
 HOME_DIR=/home/ec2-user
-
-PREP="
-sudo yum install gcc-c++ make;
-sudo yum install openssl-devel;
-sudo yum install git;
-cd $HOME_DIR;
-git clone git://github.com/joyent/node.git;
-cd node;
-git checkout v0.10.10;
-./configure;
-make;
-sudo make install;
-cd ..;
-sudo -H npm install -g forever;
-curl https://install.meteor.com | /bin/sh;
-sudo -H npm install -g meteorite;
-"
-
-#Eventually should make prepserver upgrade them if they're already installed
-#This is how you upgrade node:
-#sudo npm cache clean -f
-#sudo npm install -g n
-#sudo n stable
 
 #If this has been run before, grab variable defaults from stored config file
 PWD=`pwd`
@@ -61,6 +40,7 @@ fi
 read -e -p "Key file: " EC2_PEM_FILE
 EC2_PEM_FILE=${EC2_PEM_FILE:-$LAST_EC2_PEM_FILE}
 
+#store answers to use as defaults the next time deploymeteor is run
 cat > $PWD/.deploymeteor.config <<ENDCAT
 LAST_APP_HOST=$APP_HOST
 LAST_EC2_PEM_FILE=$EC2_PEM_FILE
@@ -71,12 +51,49 @@ SSH_OPT="-i $EC2_PEM_FILE"
 
 case "$1" in
 prepserver)
-	echo
-	echo "Preparing server…"
-	ssh -t $SSH_OPT $SSH_HOST $PREP
-	echo "Done!"
-	exit 1
-	;;
+    echo
+    echo "Preparing server..."
+    ssh -t $SSH_OPT $SSH_HOST <<EOL
+    sudo yum install gcc-c++ make
+    sudo yum install openssl-devel
+    sudo yum install git
+
+    cd $HOME_DIR
+
+    #Check if Node is installed and at the right version
+    echo "Checking for Node version $NODE_VERSION"
+    #if Node is installed
+    if hash node 2>/dev/null; then
+        #see if it needs to be upgraded
+        if node --version | grep -q $NODE_VERSION; then
+            #Upgrade Node
+            sudo npm cache clean -f
+            sudo npm install -g n
+            sudo n stable
+        fi
+    else
+        # Install Node
+        git clone git://github.com/joyent/node.git
+        cd node
+        git checkout v$NODE_VERSION
+        ./configure
+        make
+        sudo make install
+        cd ..
+    fi
+
+    #install forever
+    sudo -H npm install -g forever
+
+    #install meteor
+    curl https://install.meteor.com | /bin/sh
+
+    #install meteorite
+    sudo -H npm install -g meteorite
+EOL
+    echo "Done!"
+    exit 1
+    ;;
 esac
 
 ####The rest is run only for setting up git deployment####
@@ -109,7 +126,7 @@ echo "Format: smtp://<username>:<password>@<ip or hostname>:<port>"
 read -e -p "E-mail URL: " MAIL_URL
 echo
 
-APP_DIR=$APPS_DIR/$APP_NAME
+APP_DIR=$APPS_DIR/$APP_NAME/$1
 GIT_APP_DIR=$APP_DIR/git
 WWW_APP_DIR=$APP_DIR/www
 TMP_APP_DIR=$APP_DIR/bundletmp
@@ -121,7 +138,6 @@ mkdir -p $APP_DIR;
 rm -rf $GIT_APP_DIR;
 mkdir -p $GIT_APP_DIR/hooks;
 mkdir -p $WWW_APP_DIR;
-mkdir -p $TMP_APP_DIR;
 mkdir -p $LOG_DIR;
 mkdir -p $BUNDLE_DIR;
 cd $GIT_APP_DIR;
@@ -143,39 +159,55 @@ echo "Setting up git deployment for the $1 environment of $APP_NAME"
 ssh -t $SSH_OPT $SSH_HOST $ENVSETUP
 cat > tmp-post-receive <<ENDCAT
 #!/bin/sh
+
+# Clean up any directories that might exist already
 if [ -d "$TMP_APP_DIR" ]; then
-	rm -r $TMP_APP_DIR
+    rm -rf $TMP_APP_DIR
 fi
+if [ -d "$BUNDLE_DIR" ]; then
+    rm -rf $BUNDLE_DIR
+fi
+
+# Create the temporary directory where all the project files should be copied when git pushed
 mkdir -p $TMP_APP_DIR
+
+# Copy all the project files to the temporary directory
+cd $GIT_APP_DIR
 GIT_WORK_TREE="$TMP_APP_DIR" git checkout -f
+
+# Create the node bundle using the meteor/meteorite bundle command
 cd $TMP_APP_DIR
-mrt bundle $APPS_DIR/$APP_NAME/bundle.tgz
-cd $APPS_DIR/$APP_NAME
-if [ -d "$TMP_APP_DIR" ]; then
-	rm -r $TMP_APP_DIR
-fi
-if [ -d "bundle" ]; then
-	rm -r bundle
-fi
+sudo -H mrt bundle $APP_DIR/bundle.tgz
+
+# Extract the bundle into the BUNDLE_DIR, and then delete the .tgz file
+cd $APP_DIR
 tar -zxvf bundle.tgz
 rm bundle.tgz
-#rebuild fibers
-cd $BUNDLE_DIR/server/node_modules
-rm -r fibers
-npm install fibers@1.0.0
-#update www files
+
+# Copy the extracted node application to the WWW_APP_DIR
 cp -R $BUNDLE_DIR/* $WWW_APP_DIR
-if [ -d "$BUNDLE_DIR" ]; then
-	rm -r $BUNDLE_DIR
+
+# Clean up any directories that we created
+if [ -d "$TMP_APP_DIR" ]; then
+    rm -rf $TMP_APP_DIR
 fi
+if [ -d "$BUNDLE_DIR" ]; then
+    rm -rf $BUNDLE_DIR
+fi
+
+# Try to stop the node app using forever, in case it's already running
 sudo forever stop $WWW_APP_DIR/main.js
+
+# Start the node app using forever
 sudo PORT=$PORT ROOT_URL=$ROOT_URL MONGO_URL=$MONGO_URL MAIL_URL=$MAIL_URL forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a $WWW_APP_DIR/main.js
 ENDCAT
 scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive
 rm tmp-post-receive
 ssh-add $EC2_PEM_FILE
+# Set up the environment remote
 git remote rm $1
 git remote add $1 ssh://$SSH_HOST$GIT_APP_DIR
+# Do the initial git push
 git push $1 master
 echo
 echo
