@@ -184,7 +184,13 @@ cd $APP_DIR
 tar -zxvf bundle.tgz
 rm bundle.tgz
 
-# Copy the extracted node application to the WWW_APP_DIR
+# Reinstall fibers
+# (http://stackoverflow.com/questions/13327088/meteor-bundle-fails-because-fibers-node-is-missing)
+cd $BUNDLE_DIR/server
+npm uninstall fibers
+npm install fibers
+
+# Copy the extracted and tweaked node application to the WWW_APP_DIR
 cp -R $BUNDLE_DIR/* $WWW_APP_DIR
 
 # Clean up any directories that we created
@@ -196,10 +202,11 @@ if [ -d "$BUNDLE_DIR" ]; then
 fi
 
 # Try to stop the node app using forever, in case it's already running
+cd $WWW_APP_DIR
 sudo forever stop $WWW_APP_DIR/main.js
 
 # Start the node app using forever
-sudo PORT=$PORT ROOT_URL=$ROOT_URL MONGO_URL=$MONGO_URL MAIL_URL=$MAIL_URL forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a $WWW_APP_DIR/main.js
+sudo PORT=$PORT ROOT_URL=$ROOT_URL MONGO_URL=$MONGO_URL MAIL_URL=$MAIL_URL forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js
 ENDCAT
 scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive
 rm tmp-post-receive
