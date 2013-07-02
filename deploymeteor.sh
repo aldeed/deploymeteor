@@ -1,6 +1,10 @@
 #!/bin/bash
 
 NODE_VERSION=0.10.12
+HOME_DIR=/home/ec2-user
+NODEPROXY_DIR=$HOME_DIR/nodeproxy
+PWD=`pwd`
+SCRIPTPATH="$HOME/.deploymeteor"
 
 if [ -z "$1" ]; then
 	echo
@@ -11,10 +15,7 @@ if [ -z "$1" ]; then
 	exit 1
 fi
 
-HOME_DIR=/home/ec2-user
-
 #If this has been run before, grab variable defaults from stored config file
-PWD=`pwd`
 if [ -r "$PWD/.deploymeteor.config" ]; then
 	source "$PWD/.deploymeteor.config"
 fi
@@ -59,6 +60,7 @@ prepserver)
     sudo yum install git
 
     cd $HOME_DIR
+    mkdir -p $NODEPROXY_DIR
 
     #Check if Node is installed and at the right version
     echo "Checking for Node version $NODE_VERSION"
@@ -90,7 +92,13 @@ prepserver)
 
     #install meteorite
     sudo -H npm install -g meteorite
+
+    #install node-proxy
+    sudo -H npm install -g http-proxy
 EOL
+    # Copy nodeproxy.js from script directory to server
+    # We don't need to start it until an environment has been deployed
+    scp $SSH_OPT $SCRIPTPATH/nodeproxy.js $SSH_HOST:$NODEPROXY_DIR
     echo "Done!"
     exit 1
     ;;
@@ -132,19 +140,8 @@ WWW_APP_DIR=$APP_DIR/www
 TMP_APP_DIR=$APP_DIR/bundletmp
 LOG_DIR=$APP_DIR/logs
 BUNDLE_DIR=$APP_DIR/bundle
-
-ENVSETUP="
-mkdir -p $APP_DIR;
-rm -rf $GIT_APP_DIR;
-mkdir -p $GIT_APP_DIR/hooks;
-mkdir -p $WWW_APP_DIR;
-mkdir -p $LOG_DIR;
-mkdir -p $BUNDLE_DIR;
-cd $GIT_APP_DIR;
-git init --bare;
-touch hooks/post-receive;
-sudo chmod +x hooks/post-receive;
-"
+HOSTNAME=${ROOT_URL#https://}
+HOSTNAME=${HOSTNAME#http://}
 
 ##on workstation, make sure git init has been run
 if [ ! -d ".git" ]; then
@@ -156,7 +153,30 @@ fi
 echo
 echo
 echo "Setting up git deployment for the $1 environment of $APP_NAME"
-ssh -t $SSH_OPT $SSH_HOST $ENVSETUP
+ssh -t $SSH_OPT $SSH_HOST <<EOLENVSETUP
+# Create necessary directories
+mkdir -p $APP_DIR
+rm -rf $GIT_APP_DIR
+mkdir -p $GIT_APP_DIR/hooks
+mkdir -p $WWW_APP_DIR
+mkdir -p $LOG_DIR
+mkdir -p $BUNDLE_DIR
+# Init the bare git repo
+cd $GIT_APP_DIR
+git init --bare
+# Create the post-receive hook file and set its permissions; we'll add its contents in a bit
+touch hooks/post-receive
+sudo chmod +x hooks/post-receive
+# Create/update the JSON file for this environment used by nodeproxy.js
+cd $NODEPROXY_DIR
+cat > $APP_NAME.$1.json <<EOLJSONDOC
+{"$HOSTNAME": "127.0.0.1:$PORT"}
+EOLJSONDOC
+# Start/restart nodeproxy.js using forever so that hostname/IP updates are seen
+mkdir -p logs
+sudo forever stop $NODEPROXY_DIR/nodeproxy.js
+sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
+EOLENVSETUP
 cat > tmp-post-receive <<ENDCAT
 #!/bin/sh
 
