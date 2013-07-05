@@ -1,6 +1,6 @@
 #!/bin/bash
 
-NODE_VERSION=0.10.12
+LATEST_NODE_VERSION=0.10.12
 HOME_DIR=/home/ec2-user
 NODEPROXY_DIR=$HOME_DIR/nodeproxy
 PWD=`pwd`
@@ -55,50 +55,55 @@ prepserver)
     echo
     echo "Preparing server..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL
-    sudo yum install gcc-c++ make
-    sudo yum install openssl-devel
-    sudo yum install git
+    echo "Installing prerequisites..."
+    sudo yum install gcc-c++ make > /dev/null
+    sudo yum install openssl-devel > /dev/null
+    sudo yum install git > /dev/null
 
-    cd $HOME_DIR
-    mkdir -p $NODEPROXY_DIR
-
-    #Check if Node is installed and at the right version
-    echo "Checking for Node version $NODE_VERSION"
+    #Check if Node is installed and at the latest version
+    echo "Checking for Node..."
     #if Node is installed
     if hash node 2>/dev/null; then
-        #see if it needs to be upgraded
-        if node --version | grep -q $NODE_VERSION; then
-            #Upgrade Node
-            sudo npm cache clean -f
-            sudo npm install -g n
-            sudo n stable
-        fi
+        # Upgrade Node
+        echo "Upgrading Node..."
+        sudo npm cache clean -f &> /dev/null
+        sudo npm update -g n &> /dev/null
+        sudo n stable &> /dev/null
     else
         # Install Node
-        git clone git://github.com/joyent/node.git
+        echo "Installing Node..."
+        cd $HOME_DIR
+        git clone git://github.com/joyent/node.git &> /dev/null
         cd node
-        git checkout v$NODE_VERSION
-        ./configure
-        make
-        sudo make install
+        git checkout v$LATEST_NODE_VERSION &> /dev/null
+        ./configure &> /dev/null
+        make &> /dev/null
+        sudo make install &> /dev/null
         cd ..
     fi
 
     #install forever
-    sudo -H npm install -g forever
+    echo "Installing or updating Forever..."
+    sudo -H npm update -g forever &> /dev/null
 
     #install meteor
-    curl https://install.meteor.com | /bin/sh
+    echo "Installing or updating Meteor..."
+    curl https://install.meteor.com | /bin/sh &> /dev/null
 
     #install meteorite
-    sudo -H npm install -g meteorite
+    echo "Installing or updating Meteorite..."
+    sudo -H npm update -g meteorite &> /dev/null
 
-    #install node-proxy
-    sudo -H npm install -g http-proxy
+    #install http-proxy
+    echo "Installing or updating http-proxy..."
+    mkdir -p $NODEPROXY_DIR/certs
+    cd $NODEPROXY_DIR
+    npm update http-proxy &> /dev/null
 EOL
     # Copy nodeproxy.js from script directory to server
     # We don't need to start it until an environment has been deployed
-    scp $SSH_OPT $SCRIPTPATH/nodeproxy.js $SSH_HOST:$NODEPROXY_DIR
+    echo "Copying nodeproxy.js to the server..."
+    scp $SSH_OPT $SCRIPTPATH/nodeproxy.js $SSH_HOST:$NODEPROXY_DIR &> /dev/null
     echo "Done!"
     exit 1
     ;;
@@ -110,19 +115,19 @@ APP_NAME=${PWD##*/}
 
 #Prompt for additional app-specific info that is needed
 echo
-echo "Enter the root URL for this website, as users will access it, including protocol."
+echo "Enter the root URL for this website, as users should access it, including protocol."
 echo "Examples: http://mysite.com or https://mysite.com"
 echo "Default (press ENTER): http://$APP_HOST"
 echo
 read -e -p "Root URL: " ROOT_URL
 ROOT_URL=${ROOT_URL:-http://$APP_HOST}
 echo
-echo "Enter the port on which to host this website."
+echo "Enter the port on which to host this website. Do not enter 80 because a proxy server is automatically launched on that port."
 echo "Examples: 8080 or 3001"
-echo "Default (press ENTER): 80"
+echo "Default (press ENTER): 8000"
 echo
 read -e -p "Port: " PORT
-PORT=${PORT:-80}
+PORT=${PORT:-8000}
 echo
 echo "Enter the URL for the MongoDB database used by this app."
 echo "Format: mongodb://<username>:<password>@<ip or hostname>:<port>/<dbname>"
@@ -144,39 +149,44 @@ HOSTNAME=${ROOT_URL#https://}
 HOSTNAME=${HOSTNAME#http://}
 
 ##on workstation, make sure git init has been run
+echo
+echo
 if [ ! -d ".git" ]; then
-	git init
-	git add .
-	git commit -a -m "Initial commit"
+    echo "Initializing local git repository and committing all files..."
+	git init &> /dev/null
+	git add . &> /dev/null
+	git commit -a -m "Initial commit" &> /dev/null
 fi
-
-echo
-echo
 echo "Setting up git deployment for the $1 environment of $APP_NAME"
 ssh -t $SSH_OPT $SSH_HOST <<EOLENVSETUP
 # Create necessary directories
+echo "Creating directories..."
 mkdir -p $APP_DIR
-rm -rf $GIT_APP_DIR
+rm -rf $GIT_APP_DIR &> /dev/null
 mkdir -p $GIT_APP_DIR/hooks
 mkdir -p $WWW_APP_DIR
 mkdir -p $LOG_DIR
 mkdir -p $BUNDLE_DIR
 # Init the bare git repo
+echo "Setting up the bare git repository on the EC2 server..."
 cd $GIT_APP_DIR
-git init --bare
+git init --bare &> /dev/null
 # Create the post-receive hook file and set its permissions; we'll add its contents in a bit
 touch hooks/post-receive
 sudo chmod +x hooks/post-receive
 # Create/update the JSON file for this environment used by nodeproxy.js
+echo "Updating hostname mapping for nodeproxy..."
 cd $NODEPROXY_DIR
 cat > $APP_NAME.$1.json <<EOLJSONDOC
 {"$HOSTNAME": "127.0.0.1:$PORT"}
 EOLJSONDOC
 # Start/restart nodeproxy.js using forever so that hostname/IP updates are seen
+echo "Starting or restarting nodeproxy..."
 mkdir -p logs
-sudo forever stop $NODEPROXY_DIR/nodeproxy.js
+sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
 sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
 EOLENVSETUP
+echo "Creating the post-receive script and sending it to the EC2 server..."
 cat > tmp-post-receive <<ENDCAT
 #!/bin/sh
 
@@ -192,23 +202,27 @@ fi
 mkdir -p $TMP_APP_DIR
 
 # Copy all the project files to the temporary directory
+echo "Copying updated project files on the EC2 server..."
 cd $GIT_APP_DIR
-GIT_WORK_TREE="$TMP_APP_DIR" git checkout -f
+GIT_WORK_TREE="$TMP_APP_DIR" git checkout -f &> /dev/null
 
 # Create the node bundle using the meteor/meteorite bundle command
+echo "Creating node bundle on the EC2 server..."
 cd $TMP_APP_DIR
-sudo -H mrt bundle $APP_DIR/bundle.tgz
+sudo -H mrt bundle $APP_DIR/bundle.tgz &> /dev/null
 
 # Extract the bundle into the BUNDLE_DIR, and then delete the .tgz file
+echo "Extracting node bundle on the EC2 server..."
 cd $APP_DIR
-tar -zxvf bundle.tgz
-rm bundle.tgz
+tar -zxvf bundle.tgz &> /dev/null
+sudo rm bundle.tgz &> /dev/null
 
 # Reinstall fibers
 # (http://stackoverflow.com/questions/13327088/meteor-bundle-fails-because-fibers-node-is-missing)
+echo "Reinstalling fibers in the node bundle on the EC2 server..."
 cd $BUNDLE_DIR/server
-npm uninstall fibers
-npm install fibers
+npm uninstall fibers &> /dev/null
+npm install fibers &> /dev/null
 
 # Copy the extracted and tweaked node application to the WWW_APP_DIR
 cp -R $BUNDLE_DIR/* $WWW_APP_DIR
@@ -222,22 +236,23 @@ if [ -d "$BUNDLE_DIR" ]; then
 fi
 
 # Try to stop the node app using forever, in case it's already running
+echo "Starting or restarting this app environment on the EC2 server..."
 cd $WWW_APP_DIR
-sudo forever stop $WWW_APP_DIR/main.js
+sudo forever stop $WWW_APP_DIR/main.js &> /dev/null
 
 # Start the node app using forever
-sudo PORT=$PORT ROOT_URL=$ROOT_URL MONGO_URL=$MONGO_URL MAIL_URL=$MAIL_URL forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js
+sudo PORT=$PORT ROOT_URL=$ROOT_URL MONGO_URL=$MONGO_URL MAIL_URL=$MAIL_URL forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
 ENDCAT
-scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive
-rm tmp-post-receive
-ssh-add $EC2_PEM_FILE
+# Secure copy the post-receive script we just created, and then delete it
+scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive &> /dev/null
+rm tmp-post-receive &> /dev/null
+echo "Defining this environment as a local git remote..."
+# Make sure SSH knows about the EC2 key file for pushing
+ssh-add $EC2_PEM_FILE &> /dev/null
 # Set up the environment remote
-git remote rm $1
+git remote rm $1 &> /dev/null
 git remote add $1 ssh://$SSH_HOST$GIT_APP_DIR
-# Do the initial git push
-git push $1 master
 echo
-echo
-echo
-echo "Done! Now simply make and commit your changes and then redeploy as necessary with git push $1"
+echo "Done! Enter the following command now and whenever you have committed changes you want to deploy to the $1 environment:"
+echo "   git push $1 master"
 echo
