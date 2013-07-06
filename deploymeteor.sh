@@ -139,6 +139,20 @@ echo "Format: smtp://<username>:<password>@<ip or hostname>:<port>"
 read -e -p "E-mail URL: " MAIL_URL
 echo
 
+##support there being no mongo or mail url
+if [ -z "$MONGO_URL" ]; then
+    MONGO_URL_SETTER=""
+else
+    MONGO_URL_SETTER=" MONGO_URL=$MONGO_URL"
+fi
+
+if [ -z "$MAIL_URL" ]; then
+    MAIL_URL_SETTER=""
+else
+    MAIL_URL_SETTER=" MAIL_URL=$MAIL_URL"
+fi
+
+##set up variables
 APP_DIR=$APPS_DIR/$APP_NAME/$1
 GIT_APP_DIR=$APP_DIR/git
 WWW_APP_DIR=$APP_DIR/www
@@ -241,7 +255,7 @@ cd $WWW_APP_DIR
 sudo forever stop $WWW_APP_DIR/main.js &> /dev/null
 
 # Start the node app using forever
-sudo PORT=$PORT ROOT_URL=$ROOT_URL MONGO_URL=$MONGO_URL MAIL_URL=$MAIL_URL forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
+sudo PORT=$PORT ROOT_URL=$ROOT_URL${MONGO_URL_SETTER}${MAIL_URL_SETTER} forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
 ENDCAT
 # Secure copy the post-receive script we just created, and then delete it
 scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive &> /dev/null
