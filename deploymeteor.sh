@@ -56,9 +56,7 @@ prepserver)
     echo "Preparing server..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL
     echo "Installing prerequisites..."
-    sudo yum install gcc-c++ make > /dev/null
-    sudo yum install openssl-devel > /dev/null
-    sudo yum install git > /dev/null
+    sudo yum install -q -y gcc gcc-c++ make git openssl-devel freetype-devel fontconfig-devel &> /dev/null
 
     #Check if Node is installed and at the latest version
     echo "Checking for Node..."
@@ -99,6 +97,14 @@ prepserver)
     mkdir -p $NODEPROXY_DIR/certs
     cd $NODEPROXY_DIR
     npm update http-proxy &> /dev/null
+
+    #install PhantomJS
+    echo "Installing PhantomJS..."
+    cd $HOME_DIR
+    git clone git://github.com/ariya/phantomjs.git &> /dev/null
+    cd phantomjs
+    git checkout 1.9 &> /dev/null
+    ./build.sh &> /dev/null
 EOL
     # Copy nodeproxy.js from script directory to server
     # We don't need to start it until an environment has been deployed
