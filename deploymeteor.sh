@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST_NODE_VERSION=0.10.12
+LATEST_NODE_VERSION=0.10.13
 HOME_DIR=/home/ec2-user
 NODEPROXY_DIR=$HOME_DIR/nodeproxy
 PWD=`pwd`
@@ -86,7 +86,7 @@ prepserver)
 
     #install meteor
     echo "Installing or updating Meteor..."
-    curl https://install.meteor.com | /bin/sh &> /dev/null
+    curl https://install.meteor.com | /bin/sh
 
     #install meteorite
     echo "Installing or updating Meteorite..."
@@ -164,7 +164,7 @@ GIT_APP_DIR=$APP_DIR/git
 WWW_APP_DIR=$APP_DIR/www
 TMP_APP_DIR=$APP_DIR/bundletmp
 LOG_DIR=$APP_DIR/logs
-BUNDLE_DIR=$APP_DIR/bundle
+BUNDLE_DIR=$TMP_APP_DIR/bundle
 HOSTNAME=${ROOT_URL#https://}
 HOSTNAME=${HOSTNAME#http://}
 
@@ -212,10 +212,7 @@ cat > tmp-post-receive <<ENDCAT
 
 # Clean up any directories that might exist already
 if [ -d "$TMP_APP_DIR" ]; then
-    rm -rf $TMP_APP_DIR
-fi
-if [ -d "$BUNDLE_DIR" ]; then
-    rm -rf $BUNDLE_DIR
+    sudo rm -rf $TMP_APP_DIR
 fi
 
 # Create the temporary directory where all the project files should be copied when git pushed
@@ -229,13 +226,23 @@ GIT_WORK_TREE="$TMP_APP_DIR" git checkout -f &> /dev/null
 # Create the node bundle using the meteor/meteorite bundle command
 echo "Creating node bundle on the EC2 server..."
 cd $TMP_APP_DIR
-sudo -H mrt bundle $APP_DIR/bundle.tgz &> /dev/null
+# remove local directory if present to avoid potential permission issues
+if [ -d "$TMP_APP_DIR/.meteor/local" ]; then
+    sudo rm -r .meteor/local
+fi
+# bundle
+mrt bundle bundle.tgz
 
 # Extract the bundle into the BUNDLE_DIR, and then delete the .tgz file
 echo "Extracting node bundle on the EC2 server..."
-cd $APP_DIR
 tar -zxvf bundle.tgz &> /dev/null
-sudo rm bundle.tgz &> /dev/null
+sudo rm -f bundle.tgz &> /dev/null
+
+if [ ! -d "$BUNDLE_DIR" ]; then
+    echo "Meteor bundle command failed!"
+    sudo rm -rf $TMP_APP_DIR
+    exit 1
+fi
 
 # Reinstall fibers
 # (http://stackoverflow.com/questions/13327088/meteor-bundle-fails-because-fibers-node-is-missing)
@@ -249,10 +256,7 @@ cp -R $BUNDLE_DIR/* $WWW_APP_DIR
 
 # Clean up any directories that we created
 if [ -d "$TMP_APP_DIR" ]; then
-    rm -rf $TMP_APP_DIR
-fi
-if [ -d "$BUNDLE_DIR" ]; then
-    rm -rf $BUNDLE_DIR
+    sudo rm -rf $TMP_APP_DIR
 fi
 
 # Try to stop the node app using forever, in case it's already running
