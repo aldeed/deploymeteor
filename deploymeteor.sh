@@ -1,6 +1,6 @@
 #!/bin/bash
 
-LATEST_NODE_VERSION=0.10.13
+LATEST_NODE_VERSION=0.8.18
 HOME_DIR=/home/ec2-user
 NODEPROXY_DIR=$HOME_DIR/nodeproxy
 PWD=`pwd`
@@ -55,34 +55,17 @@ prepserver)
     echo
     echo "Preparing server..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL
+    cd $HOME_DIR
     echo "Installing prerequisites..."
     sudo yum install -q -y gcc gcc-c++ make git openssl-devel freetype-devel fontconfig-devel &> /dev/null
 
-    #Check if Node is installed and at the latest version
-    echo "Checking for Node..."
-    #if Node is installed
-    if hash node 2>/dev/null; then
-        # Upgrade Node
-        echo "Upgrading Node..."
-        sudo npm cache clean -f &> /dev/null
-        sudo npm update -g n &> /dev/null
-        sudo n stable &> /dev/null
-    else
-        # Install Node
-        echo "Installing Node..."
-        cd $HOME_DIR
-        git clone git://github.com/joyent/node.git &> /dev/null
-        cd node
-        git checkout v$LATEST_NODE_VERSION &> /dev/null
-        ./configure &> /dev/null
-        make &> /dev/null
-        sudo make install &> /dev/null
-        cd ..
-    fi
-
+    #install node
+    echo "Installing Node..."
+    sudo yum install -q -y npm --enablerepo=epel &> /dev/null
+    
     #install forever
     echo "Installing or updating Forever..."
-    sudo -H npm update -g forever &> /dev/null
+    sudo -H npm install -g forever &> /dev/null
 
     #install meteor
     echo "Installing or updating Meteor..."
@@ -90,21 +73,21 @@ prepserver)
 
     #install meteorite
     echo "Installing or updating Meteorite..."
-    sudo -H npm update -g meteorite &> /dev/null
+    sudo -H npm install -g meteorite &> /dev/null
 
     #install http-proxy
     echo "Installing or updating http-proxy..."
-    mkdir -p $NODEPROXY_DIR/certs
+    mkdir -p $NODEPROXY_DIR
     cd $NODEPROXY_DIR
-    npm update http-proxy &> /dev/null
+    npm install http-proxy &> /dev/null
 
     #install PhantomJS
-    echo "Installing PhantomJS..."
-    cd $HOME_DIR
-    git clone git://github.com/ariya/phantomjs.git &> /dev/null
-    cd phantomjs
-    git checkout 1.9 &> /dev/null
-    ./build.sh &> /dev/null
+    #echo "Installing PhantomJS..."
+    #cd $HOME_DIR
+    #git clone git://github.com/ariya/phantomjs.git &> /dev/null
+    #cd phantomjs
+    #git checkout 1.9 &> /dev/null
+    #./build.sh &> /dev/null
 EOL
     # Copy nodeproxy.js from script directory to server
     # We don't need to start it until an environment has been deployed
@@ -231,7 +214,9 @@ if [ -d "$TMP_APP_DIR/.meteor/local" ]; then
     sudo rm -r .meteor/local
 fi
 # bundle
-mrt bundle bundle.tgz
+(unset GIT_DIR; mrt update --repoPort=80)
+# Why unset? https://github.com/oortcloud/meteorite/pull/165
+meteor bundle bundle.tgz
 
 # Extract the bundle into the BUNDLE_DIR, and then delete the .tgz file
 echo "Extracting node bundle on the EC2 server..."
@@ -249,7 +234,7 @@ fi
 echo "Reinstalling fibers in the node bundle on the EC2 server..."
 cd $BUNDLE_DIR/server
 npm uninstall fibers &> /dev/null
-npm install fibers &> /dev/null
+npm install fibers@1.0.0 &> /dev/null
 
 # Copy the extracted and tweaked node application to the WWW_APP_DIR
 cp -R $BUNDLE_DIR/* $WWW_APP_DIR
