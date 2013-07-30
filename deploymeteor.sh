@@ -5,6 +5,8 @@ HOME_DIR=/home/ec2-user
 NODEPROXY_DIR=$HOME_DIR/nodeproxy
 PWD=`pwd`
 SCRIPTPATH="$HOME/.deploymeteor"
+APPS_DIR=$HOME_DIR/meteorapps
+APP_NAME=${PWD##*/}
 
 if [ -z "$1" ]; then
 	echo
@@ -82,11 +84,12 @@ prepserver)
     npm install http-proxy &> /dev/null
 
     #install PhantomJS
-    #echo "Installing PhantomJS..."
-    #cd $HOME_DIR
+    echo "Installing PhantomJS..."
+    cd $HOME_DIR
+    sudo -H npm install -g phantomjs &> /dev/null
     #git clone git://github.com/ariya/phantomjs.git &> /dev/null
     #cd phantomjs
-    #git checkout 1.9 &> /dev/null
+    #git checkout 1.9.1 &> /dev/null
     #./build.sh &> /dev/null
 EOL
     # Copy nodeproxy.js from script directory to server
@@ -96,11 +99,44 @@ EOL
     echo "Done!"
     exit 1
     ;;
+logs)
+    LOG_DIR=$APPS_DIR/$APP_NAME/$2/logs
+    ssh -t $SSH_OPT $SSH_HOST <<EOL2
+    echo "*** Error Log ***"
+    cat $LOG_DIR/err.log
+    echo "*** Out Log ***"
+    cat $LOG_DIR/out.log
+    echo "*** Forever Log ***"
+    cat $LOG_DIR/forever.log
+EOL2
+    exit 1
+    ;;
+clearlogs)
+    LOG_DIR=$APPS_DIR/$APP_NAME/$2/logs
+    ssh -t $SSH_OPT $SSH_HOST <<EOL2
+    echo "Clearing err.log"
+    sudo rm $LOG_DIR/err.log
+    sudo touch $LOG_DIR/err.log
+    echo "Clearing out.log"
+    sudo rm $LOG_DIR/out.log
+    sudo touch $LOG_DIR/out.log
+    echo "Clearing forever.log"
+    sudo rm $LOG_DIR/forever.log
+    sudo touch $LOG_DIR/forever.log
+EOL2
+    exit 1
+    ;;
+restartproxy)
+    ssh -t $SSH_OPT $SSH_HOST <<EOL3
+    sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
+    sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
+EOL3
+    exit 1
+    ;;
 esac
 
 ####The rest is run only for setting up git deployment####
-APPS_DIR=$HOME_DIR/meteorapps
-APP_NAME=${PWD##*/}
+APP_DIR=$APPS_DIR/$APP_NAME/$1
 
 #Prompt for additional app-specific info that is needed
 echo
@@ -142,7 +178,6 @@ else
 fi
 
 ##set up variables
-APP_DIR=$APPS_DIR/$APP_NAME/$1
 GIT_APP_DIR=$APP_DIR/git
 WWW_APP_DIR=$APP_DIR/www
 TMP_APP_DIR=$APP_DIR/bundletmp

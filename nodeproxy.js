@@ -7,7 +7,8 @@ var options = {
     router: {}
 };
 
-fs.readdir(__dirname, function(err, files) {
+var nodeProxyDir = __dirname;
+fs.readdir(nodeProxyDir, function(err, files) {
     if (err) {
         console.log('Error: ' + err);
         return;
@@ -16,7 +17,7 @@ fs.readdir(__dirname, function(err, files) {
     for (var i = 0, ln = files.length, file, data; i < ln; i++) {
         file = files[i];
         if (file.slice(-5) === '.json') {
-            data = fs.readFileSync(file, 'utf8');
+            data = fs.readFileSync(nodeProxyDir + '/' + file, 'utf8');
             data = JSON.parse(data);
             for (var name in data) {
                 options["router"][name] = data[name];
