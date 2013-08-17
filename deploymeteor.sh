@@ -267,9 +267,15 @@ fi
 # Reinstall fibers
 # (http://stackoverflow.com/questions/13327088/meteor-bundle-fails-because-fibers-node-is-missing)
 echo "Reinstalling fibers in the node bundle on the EC2 server..."
-cd $BUNDLE_DIR/server
-npm uninstall fibers &> /dev/null
-npm install fibers@1.0.0 &> /dev/null
+if [ -d "$BUNDLE_DIR/programs/server" ]; then
+    cd $BUNDLE_DIR/programs/server
+    npm uninstall fibers &> /dev/null
+    npm install fibers@1.0.0 &> /dev/null
+elif [ -d "$BUNDLE_DIR/server" ]; then
+    cd $BUNDLE_DIR/server
+    npm uninstall fibers &> /dev/null
+    npm install fibers@1.0.0 &> /dev/null
+fi
 
 # Copy the extracted and tweaked node application to the WWW_APP_DIR
 cp -R $BUNDLE_DIR/* $WWW_APP_DIR
