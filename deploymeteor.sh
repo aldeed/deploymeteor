@@ -190,27 +190,28 @@ fi
 
 #store answers to use as defaults the next time deploymeteor is run
 if [ -r "$SCRIPTPATH/.settings.$APP_NAME.$1" ]; then
-cat > $SCRIPTPATH/.settings.$APP_NAME.$1 <<ENDCAT
-DEFAULT_ROOT_URL=$ROOT_URL
-DEFAULT_PORT=$PORT
-DEFAULT_MONGO_URL=$MONGO_URL
-DEFAULT_MAIL_URL=$MAIL_URL
-ENDCAT
+    cat > $SCRIPTPATH/.settings.$APP_NAME.$1 <<ENDCAT1
+    DEFAULT_ROOT_URL=$ROOT_URL
+    DEFAULT_PORT=$PORT
+    DEFAULT_MONGO_URL=$MONGO_URL
+    DEFAULT_MAIL_URL=$MAIL_URL
+ENDCAT1
 else
-echo
-echo "Save these settings in the current user account on this machine?"
-echo "Everything, including passwords, will be stored in plain text, but"
-echo "the file is only readable by $(whoami). Enter YES to save them."
-read -e -p "Save settings? " SHOULD_SAVE
-echo
-if [ $SHOULD_SAVE = "YES" ] || [ $SHOULD_SAVE = "yes" ]; then
-cat > $SCRIPTPATH/.settings.$APP_NAME.$1 <<ENDCAT
-DEFAULT_ROOT_URL=$ROOT_URL
-DEFAULT_PORT=$PORT
-DEFAULT_MONGO_URL=$MONGO_URL
-DEFAULT_MAIL_URL=$MAIL_URL
-ENDCAT
-chmod 600 $SCRIPTPATH/.settings.$APP_NAME.$1
+    echo
+    echo "Save these settings in the current user account on this machine?"
+    echo "Everything, including passwords, will be stored in plain text, but"
+    echo "the file is only readable by $(whoami). Enter YES to save them."
+    read -e -p "Save settings? " SHOULD_SAVE
+    echo
+    if [ $SHOULD_SAVE = "YES" ] || [ $SHOULD_SAVE = "yes" ]; then
+        cat > $SCRIPTPATH/.settings.$APP_NAME.$1 <<ENDCAT2
+        DEFAULT_ROOT_URL=$ROOT_URL
+        DEFAULT_PORT=$PORT
+        DEFAULT_MONGO_URL=$MONGO_URL
+        DEFAULT_MAIL_URL=$MAIL_URL
+ENDCAT2
+        chmod 600 $SCRIPTPATH/.settings.$APP_NAME.$1
+    fi
 fi
 
 ##set up variables
