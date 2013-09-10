@@ -1,6 +1,5 @@
 #!/bin/bash
 
-LATEST_NODE_VERSION=0.8.18
 HOME_DIR=/home/ec2-user
 NODEPROXY_DIR=$HOME_DIR/nodeproxy
 PWD=`pwd`
@@ -138,30 +137,42 @@ esac
 ####The rest is run only for setting up git deployment####
 APP_DIR=$APPS_DIR/$APP_NAME/$1
 
+#If this has been run before, grab variable defaults from stored config file
+if [ -r "$SCRIPTPATH/.settings.$APP_NAME.$1" ]; then
+source "$SCRIPTPATH/.settings.$APP_NAME.$1"
+else
+DEFAULT_ROOT_URL=http://$APP_HOST
+DEFAULT_PORT=8000
+fi
+
 #Prompt for additional app-specific info that is needed
 echo
 echo "Enter the root URL for this website, as users should access it, including protocol."
 echo "Examples: http://mysite.com or https://mysite.com"
-echo "Default (press ENTER): http://$APP_HOST"
+echo "Default (press ENTER): $DEFAULT_ROOT_URL"
 echo
 read -e -p "Root URL: " ROOT_URL
-ROOT_URL=${ROOT_URL:-http://$APP_HOST}
+ROOT_URL=${ROOT_URL:-$DEFAULT_ROOT_URL}
 echo
 echo "Enter the port on which to host this website. Do not enter 80 because a proxy server is automatically launched on that port."
 echo "Examples: 8080 or 3001"
-echo "Default (press ENTER): 8000"
+echo "Default (press ENTER): $DEFAULT_PORT"
 echo
 read -e -p "Port: " PORT
-PORT=${PORT:-8000}
+PORT=${PORT:-$DEFAULT_PORT}
 echo
 echo "Enter the URL for the MongoDB database used by this app."
 echo "Format: mongodb://<username>:<password>@<ip or hostname>:<port>/<dbname>"
+echo "Default (press ENTER): $DEFAULT_MONGO_URL"
 read -e -p "MongoDB URL: " MONGO_URL
+MONGO_URL=${MONGO_URL:-$DEFAULT_MONGO_URL}
 echo
 echo
 echo "Enter the SMTP URL for e-mail sending by this app."
 echo "Format: smtp://<username>:<password>@<ip or hostname>:<port>"
+echo "Default (press ENTER): $DEFAULT_MAIL_URL"
 read -e -p "E-mail URL: " MAIL_URL
+MAIL_URL=${MAIL_URL:-$DEFAULT_MAIL_URL}
 echo
 
 ##support there being no mongo or mail url
@@ -175,6 +186,31 @@ if [ -z "$MAIL_URL" ]; then
     MAIL_URL_SETTER=""
 else
     MAIL_URL_SETTER=" MAIL_URL=$MAIL_URL"
+fi
+
+#store answers to use as defaults the next time deploymeteor is run
+if [ -r "$SCRIPTPATH/.settings.$APP_NAME.$1" ]; then
+cat > $SCRIPTPATH/.settings.$APP_NAME.$1 <<ENDCAT
+DEFAULT_ROOT_URL=$ROOT_URL
+DEFAULT_PORT=$PORT
+DEFAULT_MONGO_URL=$MONGO_URL
+DEFAULT_MAIL_URL=$MAIL_URL
+ENDCAT
+else
+echo
+echo "Save these settings in the current user account on this machine?"
+echo "Everything, including passwords, will be stored in plain text, but"
+echo "the file is only readable by $(whoami). Enter YES to save them."
+read -e -p "Save settings? " SHOULD_SAVE
+echo
+if [ $SHOULD_SAVE = "YES" ] || [ $SHOULD_SAVE = "yes" ]; then
+cat > $SCRIPTPATH/.settings.$APP_NAME.$1 <<ENDCAT
+DEFAULT_ROOT_URL=$ROOT_URL
+DEFAULT_PORT=$PORT
+DEFAULT_MONGO_URL=$MONGO_URL
+DEFAULT_MAIL_URL=$MAIL_URL
+ENDCAT
+chmod 600 $SCRIPTPATH/.settings.$APP_NAME.$1
 fi
 
 ##set up variables
