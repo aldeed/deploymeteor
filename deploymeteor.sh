@@ -99,37 +99,133 @@ EOL
     exit 1
     ;;
 logs)
-    LOG_DIR=$APPS_DIR/$APP_NAME/$2/logs
-    ssh -t $SSH_OPT $SSH_HOST <<EOL2
-    echo "*** Error Log ***"
-    cat $LOG_DIR/err.log
-    echo "*** Out Log ***"
-    cat $LOG_DIR/out.log
-    echo "*** Forever Log ***"
-    cat $LOG_DIR/forever.log
+    if [ -z "$2" ]; then
+        echo
+        echo "Usage: deploymeteor logs <environment> or deploymeteor logs all"
+        exit 1;
+    fi
+    if [ $2 = "all" ]; then
+        ssh -t $SSH_OPT $SSH_HOST <<EOL5
+        for dir in \$(find "$APPS_DIR" -type d -maxdepth 3 -iname "logs")
+        do
+          echo
+          echo
+          echo "********* LOGS FOR \$dir *********"
+          echo
+          echo "*** Error Log ***"
+          cat "\$dir/err.log"
+          echo
+          echo "*** Out Log ***"
+          cat "\$dir/out.log"
+          echo
+          echo "*** Forever Log ***"
+          cat "\$dir/forever.log"
+          echo
+          echo
+        done
+EOL5
+    else
+        LOG_DIR=$APPS_DIR/$APP_NAME/$2/logs
+        ssh -t $SSH_OPT $SSH_HOST <<EOL2
+        echo
+        echo "*** Error Log ***"
+        cat $LOG_DIR/err.log
+        echo
+        echo "*** Out Log ***"
+        cat $LOG_DIR/out.log
+        echo
+        echo "*** Forever Log ***"
+        cat $LOG_DIR/forever.log
+        echo
 EOL2
+    fi
     exit 1
     ;;
 clearlogs)
-    LOG_DIR=$APPS_DIR/$APP_NAME/$2/logs
-    ssh -t $SSH_OPT $SSH_HOST <<EOL2
-    echo "Clearing err.log"
-    sudo rm $LOG_DIR/err.log
-    sudo touch $LOG_DIR/err.log
-    echo "Clearing out.log"
-    sudo rm $LOG_DIR/out.log
-    sudo touch $LOG_DIR/out.log
-    echo "Clearing forever.log"
-    sudo rm $LOG_DIR/forever.log
-    sudo touch $LOG_DIR/forever.log
+    if [ -z "$2" ]; then
+        echo
+        echo "Usage: deploymeteor clearlogs <environment> or deploymeteor clearlogs all"
+        exit 1;
+    fi
+    if [ $2 = "all" ]; then
+        ssh -t $SSH_OPT $SSH_HOST <<EOL6
+        echo "Clearing all logs..."
+        for dir in \$(find "$APPS_DIR" -type d -maxdepth 3 -iname "logs")
+        do
+          echo "Clearing logs in \$dir..."
+          sudo rm "\$dir/err.log"
+          sudo touch "\$dir/err.log"
+          sudo rm "\$dir/out.log"
+          sudo touch "\$dir/out.log"
+          sudo rm "\$dir/forever.log"
+          sudo touch "\$dir/forever.log"
+        done
+EOL6
+    else
+        LOG_DIR=$APPS_DIR/$APP_NAME/$2/logs
+        ssh -t $SSH_OPT $SSH_HOST <<EOL2
+        echo "Clearing err.log..."
+        sudo rm $LOG_DIR/err.log
+        sudo touch $LOG_DIR/err.log
+        echo "Clearing out.log..."
+        sudo rm $LOG_DIR/out.log
+        sudo touch $LOG_DIR/out.log
+        echo "Clearing forever.log..."
+        sudo rm $LOG_DIR/forever.log
+        sudo touch $LOG_DIR/forever.log
 EOL2
+    fi
     exit 1
     ;;
 restartproxy)
+    echo "Restarting nodeproxy..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL3
     sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
     sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
 EOL3
+    echo "Done!"
+    exit 1
+    ;;
+restart)
+    if [ -z "$2" ]; then
+        echo
+        echo "Usage: deploymeteor restart <environment> or deploymeteor restart all"
+        exit 1;
+    fi
+    if [ $2 = "all" ]; then
+        ssh -t $SSH_OPT $SSH_HOST <<EOL8
+        echo "Restarting all app environments..."
+        for file in \$(find "$APPS_DIR" -type f -maxdepth 3 -iname "restartapp")
+        do
+            \$file
+        done
+        echo "Restarting nodeproxy..."
+        sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
+        sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js &> /dev/null
+        echo "Done"
+EOL8
+    else
+        ssh -t $SSH_OPT $SSH_HOST <<EOL4
+        if [ -r "$APPS_DIR/$APP_NAME/$2/restartapp" ]; then
+            $APPS_DIR/$APP_NAME/$2/restartapp
+            echo "Done!"
+        else
+            echo "You must run deploymeteor $2 first!"
+        fi
+EOL4
+    fi
+    exit 1
+    ;;
+stop)
+    if [ -z "$2" ]; then
+        echo
+        echo "Usage: deploymeteor stop <environment>"
+        exit 1;
+    fi
+    ssh -t $SSH_OPT $SSH_HOST <<EOL7
+    sudo forever stop $APPS_DIR/$APP_NAME/$2/www/main.js &> /dev/null
+EOL7
+    echo "Stopped the $2 environment of $APP_NAME"
     exit 1
     ;;
 esac
@@ -306,12 +402,16 @@ fi
 echo "Reinstalling fibers in the node bundle on the EC2 server..."
 if [ -d "$BUNDLE_DIR/programs/server" ]; then
     cd $BUNDLE_DIR/programs/server
+    sudo rm -rf node_modules/fibers
     npm uninstall fibers &> /dev/null
-    npm install fibers@1.0.0 &> /dev/null
-elif [ -d "$BUNDLE_DIR/server" ]; then
+    npm install fibers &> /dev/null
+fi
+
+if [ -d "$BUNDLE_DIR/server" ]; then
     cd $BUNDLE_DIR/server
+    sudo rm -rf node_modules/fibers
     npm uninstall fibers &> /dev/null
-    npm install fibers@1.0.0 &> /dev/null
+    npm install fibers &> /dev/null
 fi
 
 # Copy the extracted and tweaked node application to the WWW_APP_DIR
@@ -323,7 +423,7 @@ if [ -d "$TMP_APP_DIR" ]; then
 fi
 
 # Try to stop the node app using forever, in case it's already running
-echo "Starting or restarting this app environment on the EC2 server..."
+echo "Starting or restarting the $1 environment of $APP_NAME on the EC2 server..."
 cd $WWW_APP_DIR
 sudo forever stop $WWW_APP_DIR/main.js &> /dev/null
 
@@ -333,6 +433,30 @@ ENDCAT
 # Secure copy the post-receive script we just created, and then delete it
 scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive &> /dev/null
 rm tmp-post-receive &> /dev/null
+
+echo "Creating the restart script and sending it to the EC2 server..."
+touch tmp-restartapp
+chmod
+cat > tmp-restartapp <<ENDCAT5
+#!/bin/sh
+
+# Try to stop the node app using forever, in case it's already running
+echo "Starting or restarting this app environment on the EC2 server..."
+cd $WWW_APP_DIR
+sudo forever stop $WWW_APP_DIR/main.js &> /dev/null
+
+# Start the node app using forever
+sudo PORT=$PORT ROOT_URL=$ROOT_URL${MONGO_URL_SETTER}${MAIL_URL_SETTER} forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
+ENDCAT5
+# Secure copy the restartapp script we just created
+scp $SSH_OPT tmp-restartapp $SSH_HOST:$APP_DIR/restartapp &> /dev/null
+# Then make it executable
+ssh -t $SSH_OPT $SSH_HOST <<ENDCAT6
+chmod 700 $APP_DIR/restartapp &> /dev/null
+ENDCAT6
+# Then delete the local file
+rm tmp-restartapp &> /dev/null
+
 echo "Defining this environment as a local git remote..."
 # Make sure SSH knows about the EC2 key file for pushing
 ssh-add $EC2_PEM_FILE &> /dev/null
