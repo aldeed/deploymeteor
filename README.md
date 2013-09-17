@@ -48,6 +48,75 @@ $ git commit -a -m "I updated my app"
 $ git push <env> master
 ```
 
+## Additional Options
+
+There are several additional options that allow you to quickly perform actions for a certain app environment from your workstation.
+
+### deploymeteor logs
+
+Shows you the `out`, `error`, and `forever` logs for a certain app environment or for all app environments hosted on a single server at once.
+
+```bash
+$ cd /my/app/directory
+$ deploymeteor logs <env>
+```
+
+Or
+
+```bash
+$ cd /any/app/directory
+$ deploymeteor logs all
+```
+
+### deploymeteor clearlogs
+
+Clears the `out`, `error`, and `forever` logs for a certain app environment or for all app environments hosted on a single server at once.
+
+```bash
+$ cd /my/app/directory
+$ deploymeteor clearlogs <env>
+```
+
+Or
+
+```bash
+$ cd /any/app/directory
+$ deploymeteor clearlogs all
+```
+
+### deploymeteor restart
+
+Restarts (or starts) a certain app environment or all app environments hosted on a single server at once.
+
+```bash
+$ cd /my/app/directory
+$ deploymeteor restart <env>
+```
+
+Or
+
+```bash
+$ cd /any/app/directory
+$ deploymeteor restart all
+```
+
+Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor restart all` followed by `deploymeteor restartproxy` and everything should be back to normal.
+
+### deploymeteor restartproxy
+
+Restarts (or starts) the nodeproxy app, which is what routes traffic to the correct app/port based on hostname.
+
+Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor restart all` followed by `deploymeteor restartproxy` and everything should be back to normal.
+
+### deploymeteor stop
+
+Stops a certain app environment.
+
+```bash
+$ cd /my/app/directory
+$ deploymeteor stop <env>
+```
+
 ## What Exactly Does the Script Do?
 
 ### deploymeteor prepserver
