@@ -239,6 +239,7 @@ source "$SCRIPTPATH/.settings.$APP_NAME.$1"
 else
 DEFAULT_ROOT_URL=http://$APP_HOST
 DEFAULT_PORT=8000
+DEFAULT_SETTINGS_FILE=./settings.$1.json
 fi
 
 #Prompt for additional app-specific info that is needed
@@ -270,6 +271,13 @@ echo "Default (press ENTER): $DEFAULT_MAIL_URL"
 read -e -p "E-mail URL: " MAIL_URL
 MAIL_URL=${MAIL_URL:-$DEFAULT_MAIL_URL}
 echo
+echo
+echo "Enter the local path to a settings JSON file for this app environment."
+echo "Format: /path/to/settings.json"
+echo "Default (press ENTER): $DEFAULT_SETTINGS_FILE"
+read -e -p "Settings file path: " SETTINGS_FILE
+SETTINGS_FILE=${SETTINGS_FILE:-$DEFAULT_SETTINGS_FILE}
+echo
 
 ##support there being no mongo or mail url
 if [ -z "$MONGO_URL" ]; then
@@ -284,6 +292,12 @@ else
     MAIL_URL_SETTER=" MAIL_URL=$MAIL_URL"
 fi
 
+if [ -z "$SETTINGS_FILE" ]; then
+    SETTINGS_SETTER=""
+else
+    SETTINGS_SETTER=" METEOR_SETTINGS=\$(cat $APP_DIR/settings.json)"
+fi
+
 #store answers to use as defaults the next time deploymeteor is run
 if [ -r "$SCRIPTPATH/.settings.$APP_NAME.$1" ]; then
     cat > $SCRIPTPATH/.settings.$APP_NAME.$1 <<ENDCAT1
@@ -291,6 +305,7 @@ if [ -r "$SCRIPTPATH/.settings.$APP_NAME.$1" ]; then
     DEFAULT_PORT=$PORT
     DEFAULT_MONGO_URL=$MONGO_URL
     DEFAULT_MAIL_URL=$MAIL_URL
+    DEFAULT_SETTINGS_FILE=$SETTINGS_FILE
 ENDCAT1
 else
     echo
@@ -305,6 +320,7 @@ else
         DEFAULT_PORT=$PORT
         DEFAULT_MONGO_URL=$MONGO_URL
         DEFAULT_MAIL_URL=$MAIL_URL
+        DEFAULT_SETTINGS_FILE=$SETTINGS_FILE
 ENDCAT2
         chmod 600 $SCRIPTPATH/.settings.$APP_NAME.$1
     fi
@@ -428,7 +444,8 @@ cd $WWW_APP_DIR
 sudo forever stop $WWW_APP_DIR/main.js &> /dev/null
 
 # Start the node app using forever
-sudo PORT=$PORT ROOT_URL=$ROOT_URL${MONGO_URL_SETTER}${MAIL_URL_SETTER} forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
+export PORT=$PORT ROOT_URL=$ROOT_URL${MONGO_URL_SETTER}${MAIL_URL_SETTER}${SETTINGS_SETTER}
+sudo -E forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
 ENDCAT
 # Secure copy the post-receive script we just created, and then delete it
 scp $SSH_OPT tmp-post-receive $SSH_HOST:$GIT_APP_DIR/hooks/post-receive &> /dev/null
@@ -446,7 +463,8 @@ cd $WWW_APP_DIR
 sudo forever stop $WWW_APP_DIR/main.js &> /dev/null
 
 # Start the node app using forever
-sudo PORT=$PORT ROOT_URL=$ROOT_URL${MONGO_URL_SETTER}${MAIL_URL_SETTER} forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
+export PORT=$PORT ROOT_URL=$ROOT_URL${MONGO_URL_SETTER}${MAIL_URL_SETTER}${SETTINGS_SETTER}
+sudo -E forever start -l $LOG_DIR/forever.log -o $LOG_DIR/out.log -e $LOG_DIR/err.log -a -s $WWW_APP_DIR/main.js &> /dev/null
 ENDCAT5
 # Secure copy the restartapp script we just created
 scp $SSH_OPT tmp-restartapp $SSH_HOST:$APP_DIR/restartapp &> /dev/null
@@ -456,6 +474,12 @@ chmod 700 $APP_DIR/restartapp &> /dev/null
 ENDCAT6
 # Then delete the local file
 rm tmp-restartapp &> /dev/null
+
+# Secure copy the settings file
+if [ -r "$SETTINGS_FILE" ]; then
+    echo "Copying environment settings to the EC2 server..."
+    scp $SSH_OPT $SETTINGS_FILE $SSH_HOST:$APP_DIR/settings.json &> /dev/null
+fi
 
 echo "Defining this environment as a local git remote..."
 # Make sure SSH knows about the EC2 key file for pushing
