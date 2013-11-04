@@ -106,7 +106,7 @@ Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor r
 
 Restarts (or starts) the nodeproxy app, which is what routes traffic to the correct app/port based on hostname.
 
-Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor restart all` followed by `deploymeteor restartproxy` and everything should be back to normal.
+Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor restart all` after it restarts and everything should be back to normal.
 
 ### deploymeteor stop
 
