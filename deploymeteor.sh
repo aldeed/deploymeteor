@@ -80,7 +80,7 @@ prepserver)
     echo "Installing or updating http-proxy..."
     mkdir -p $NODEPROXY_DIR
     cd $NODEPROXY_DIR
-    npm install http-proxy &> /dev/null
+    npm install http-proxy@0.10.3 &> /dev/null
 
     #install PhantomJS
     echo "Installing PhantomJS..."
