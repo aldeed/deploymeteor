@@ -100,13 +100,11 @@ $ cd /any/app/directory
 $ deploymeteor restart all
 ```
 
-Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor restart all` followed by `deploymeteor restartproxy` and everything should be back to normal.
+Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor restart all` after it restarts and everything should be back to normal.
 
 ### deploymeteor restartproxy
 
-Restarts (or starts) the nodeproxy app, which is what routes traffic to the correct app/port based on hostname.
-
-Tip: If you need to reboot your EC2 instance for any reason, run `deploymeteor restart all` after it restarts and everything should be back to normal.
+Restarts (or starts) the nodeproxy app, which is what routes traffic to the correct app/port based on hostname. Generally speaking, there's no reason for you to run this.
 
 ### deploymeteor stop
 
