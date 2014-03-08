@@ -61,8 +61,12 @@ prepserver)
     sudo yum install -q -y gcc gcc-c++ make git openssl-devel freetype-devel fontconfig-devel &> /dev/null
 
     #install node
-    echo "Installing Node..."
+    echo "Installing Node and NPM..."
     sudo yum install -q -y npm --enablerepo=epel &> /dev/null
+
+    #install nvm
+    echo "Installing or updating NVM..."
+    sudo -H npm install -g nvm &> /dev/null
     
     #install forever
     echo "Installing or updating Forever..."
@@ -82,14 +86,19 @@ prepserver)
     cd $NODEPROXY_DIR
     npm install http-proxy &> /dev/null
 
-    #install PhantomJS
-    echo "Installing PhantomJS..."
-    cd $HOME_DIR
-    sudo -H npm install -g phantomjs &> /dev/null
-    #git clone git://github.com/ariya/phantomjs.git &> /dev/null
-    #cd phantomjs
-    #git checkout 1.9.1 &> /dev/null
-    #./build.sh &> /dev/null
+    #add nvm node versions to path
+    if grep -q "./node_modules/.bin" <<< "$PATH" ; then
+        echo "./node_modules/.bin found in PATH"
+    else
+        echo "./node_modules/.bin not found in PATH. Adding it to PATH."
+        export PATH=./node_modules/.bin:$PATH
+    fi
+    if grep -q "./node_modules/.bin" ~/.bashrc ; then
+        echo "./node_modules/.bin found in ~/.bashrc"
+    else
+        echo "./node_modules/.bin not found in ~/.bashrc. Adding it in ~/.bashrc."
+        echo "export PATH=./node_modules/.bin:$PATH" >> ~/.bashrc
+    fi
 EOL
     # Copy nodeproxy.js from script directory to server
     # We don't need to start it until an environment has been deployed
@@ -236,13 +245,21 @@ APP_DIR=$APPS_DIR/$APP_NAME/$1
 #If this has been run before, grab variable defaults from stored config file
 if [ -r "$SCRIPTPATH/.settings.$APP_NAME.$1" ]; then
 source "$SCRIPTPATH/.settings.$APP_NAME.$1"
-else
-DEFAULT_ROOT_URL=http://$APP_HOST
-DEFAULT_PORT=8000
-DEFAULT_SETTINGS_FILE=./settings.$1.json
 fi
 
+#Defaults
+DEFAULT_ROOT_URL=${DEFAULT_ROOT_URL:-http://$APP_HOST}
+DEFAULT_PORT=${DEFAULT_PORT:-8000}
+DEFAULT_NODE_VERSION=${DEFAULT_NODE_VERSION:-v0.10.26}
+
 #Prompt for additional app-specific info that is needed
+echo
+echo "Enter the version of NodeJS that you want to use."
+echo "Example: v0.10.26"
+echo "Default (press ENTER): $DEFAULT_NODE_VERSION"
+echo
+read -e -p "NodeJS Version: " NODE_VERSION
+NODE_VERSION=${NODE_VERSION:-$DEFAULT_NODE_VERSION}
 echo
 echo "Enter the root URL for this website, as users should access it, including protocol."
 echo "Examples: http://mysite.com or https://mysite.com"
@@ -306,6 +323,7 @@ if [ -r "$SCRIPTPATH/.settings.$APP_NAME.$1" ]; then
     DEFAULT_MONGO_URL=$MONGO_URL
     DEFAULT_MAIL_URL=$MAIL_URL
     DEFAULT_SETTINGS_FILE=$SETTINGS_FILE
+    DEFAULT_NODE_VERSION=$NODE_VERSION
 ENDCAT1
 else
     echo
@@ -321,6 +339,7 @@ else
         DEFAULT_MONGO_URL=$MONGO_URL
         DEFAULT_MAIL_URL=$MAIL_URL
         DEFAULT_SETTINGS_FILE=$SETTINGS_FILE
+        DEFAULT_NODE_VERSION=$NODE_VERSION
 ENDCAT2
         chmod 600 $SCRIPTPATH/.settings.$APP_NAME.$1
     fi
@@ -390,9 +409,10 @@ echo "Copying updated project files on the EC2 server..."
 cd $GIT_APP_DIR
 GIT_WORK_TREE="$TMP_APP_DIR" git checkout -f &> /dev/null
 
+cd $TMP_APP_DIR
+
 # Create the node bundle using the meteor/meteorite bundle command
 echo "Creating node bundle on the EC2 server..."
-cd $TMP_APP_DIR
 # remove local directory if present to avoid potential permission issues
 if [ -d "$TMP_APP_DIR/.meteor/local" ]; then
     sudo rm -r .meteor/local
@@ -438,9 +458,17 @@ if [ -d "$TMP_APP_DIR" ]; then
     sudo rm -rf $TMP_APP_DIR
 fi
 
+cd $WWW_APP_DIR
+
+# Use NVM to install and use correct version of node
+echo "Installing and using correct NodeJS version..."
+nvm install $NODE_VERSION &> /dev/null
+nvm use $NODE_VERSION &> /dev/null
+sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/bin/node &> /dev/null
+sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/local/bin/node &> /dev/null
+
 # Try to stop the node app using forever, in case it's already running
 echo "Starting or restarting the $1 environment of $APP_NAME on the EC2 server..."
-cd $WWW_APP_DIR
 sudo forever stop $WWW_APP_DIR/main.js &> /dev/null
 
 # Start the node app using forever
@@ -456,6 +484,13 @@ touch tmp-restartapp
 chmod
 cat > tmp-restartapp <<ENDCAT5
 #!/bin/sh
+
+# Use NVM to install and use correct version of node
+echo "Installing and using correct NodeJS version..."
+nvm install $NODE_VERSION &> /dev/null
+nvm use $NODE_VERSION &> /dev/null
+sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/bin/node &> /dev/null
+sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/local/bin/node &> /dev/null
 
 # Try to stop the node app using forever, in case it's already running
 echo "Starting or restarting this app environment on the EC2 server..."
