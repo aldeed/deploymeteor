@@ -163,3 +163,5 @@ If you need to use multiple SSL certificates (because you're hosting multiple ro
 ## Thanks
 
 Thanks to @julien-c for inspiration in [meteoric.sh](https://github.com/julien-c/meteoric.sh) and credit to [this post](http://toroid.org/ams/git-website-howto).
+
+[![Support via Gittip](https://rawgithub.com/twolfson/gittip-badge/0.2.0/dist/gittip.png)](https://www.gittip.com/aldeed/)
