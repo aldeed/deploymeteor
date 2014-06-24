@@ -8,17 +8,17 @@ APPS_DIR=$HOME_DIR/meteorapps
 APP_NAME=${PWD##*/}
 
 if [ -z "$1" ]; then
-	echo
-	echo "Usage: deploymeteor <environment>"
-	echo "For example, type deploymeteor staging to deploy to a staging environment. This environment will be created and initialized on the remote server and added as a remote repository for this git repository."
-	echo
-	echo "Before the first time you use deploymeteor with a new server, you should also run deploymeteor prepserver. This will install node, npm, meteor, forever, and meteorite on the server."
-	exit 1
+    echo
+    echo "Usage: deploymeteor <environment>"
+    echo "For example, type deploymeteor staging to deploy to a staging environment. This environment will be created and initialized on the remote server and added as a remote repository for this git repository."
+    echo
+    echo "Before the first time you use deploymeteor with a new server, you should also run deploymeteor prepserver. This will install node, npm, meteor, forever, and meteorite on the server."
+    exit 1
 fi
 
 #If this has been run before, grab variable defaults from stored config file
 if [ -r "$PWD/.deploymeteor.config" ]; then
-	source "$PWD/.deploymeteor.config"
+    source "$PWD/.deploymeteor.config"
 fi
 
 #prompt for info needed by both prepserver and environment deploy
@@ -26,18 +26,18 @@ echo
 echo "Enter the hostname or IP address of the Amazon Linux EC2 server."
 echo "Examples: 11.111.11.111 or ec2-11-111-11-111.us-west-2.compute.amazonaws.com"
 if [ -z "$LAST_APP_HOST" ]; then
-	echo "Default (press ENTER): No default"
+    echo "Default (press ENTER): No default"
 else
-	echo "Default (press ENTER): $LAST_APP_HOST"
+    echo "Default (press ENTER): $LAST_APP_HOST"
 fi
 read -e -p "Host: " APP_HOST
 APP_HOST=${APP_HOST:-$LAST_APP_HOST}
 echo
 echo "Enter the path to your EC2 .pem file on this machine."
 if [ -z "$LAST_EC2_PEM_FILE" ]; then
-	echo "Default (press ENTER): No default"
+    echo "Default (press ENTER): No default"
 else
-	echo "Default (press ENTER): $LAST_EC2_PEM_FILE"
+    echo "Default (press ENTER): $LAST_EC2_PEM_FILE"
 fi
 read -e -p "Key file: " EC2_PEM_FILE
 EC2_PEM_FILE=${EC2_PEM_FILE:-$LAST_EC2_PEM_FILE}
@@ -84,7 +84,7 @@ prepserver)
     echo "Installing or updating http-proxy..."
     mkdir -p $NODEPROXY_DIR
     cd $NODEPROXY_DIR
-    npm install http-proxy@0.10.3 &> /dev/null
+    npm install http-proxy &> /dev/null
 
     #add nvm node versions to path
     if grep -q "./node_modules/.bin" <<< "$PATH" ; then
@@ -189,6 +189,11 @@ EOL2
 restartproxy)
     echo "Restarting nodeproxy..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL3
+    echo "Installing and using correct NodeJS version..."
+    nvm install v0.10.26 &> /dev/null
+    nvm use v0.10.26 &> /dev/null
+    sudo ln -sf ~/.nvm/v0.10.26/bin/node /usr/bin/node &> /dev/null
+    sudo ln -sf ~/.nvm/v0.10.26/bin/node /usr/local/bin/node &> /dev/null
     sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
     sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
 EOL3
@@ -209,6 +214,11 @@ restart)
             \$file
         done
         echo "Restarting nodeproxy..."
+        echo "Installing and using correct NodeJS version..."
+        nvm install v0.10.26 &> /dev/null
+        nvm use v0.10.26 &> /dev/null
+        sudo ln -sf ~/.nvm/v0.10.26/bin/node /usr/bin/node &> /dev/null
+        sudo ln -sf ~/.nvm/v0.10.26/bin/node /usr/local/bin/node &> /dev/null
         sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         echo "Done"
@@ -312,7 +322,12 @@ fi
 if [ -z "$SETTINGS_FILE" ]; then
     SETTINGS_SETTER=""
 else
-    SETTINGS_SETTER=" METEOR_SETTINGS=\$(cat $APP_DIR/settings.json)"
+    if [ -r "$SETTINGS_FILE" ]; then
+        SETTINGS_SETTER=" METEOR_SETTINGS=\$(cat $APP_DIR/settings.json)"
+    else
+        SETTINGS_SETTER=""
+        SETTINGS_FILE=""
+    fi
 fi
 
 #store answers to use as defaults the next time deploymeteor is run
@@ -359,9 +374,9 @@ echo
 echo
 if [ ! -d ".git" ]; then
     echo "Initializing local git repository and committing all files..."
-	git init &> /dev/null
-	git add . &> /dev/null
-	git commit -a -m "Initial commit" &> /dev/null
+    git init &> /dev/null
+    git add . &> /dev/null
+    git commit -a -m "Initial commit" &> /dev/null
 fi
 echo "Setting up git deployment for the $1 environment of $APP_NAME"
 ssh -t $SSH_OPT $SSH_HOST <<EOLENVSETUP
@@ -389,6 +404,11 @@ EOLJSONDOC
 # Start/restart nodeproxy.js using forever so that hostname/IP updates are seen
 echo "Starting or restarting nodeproxy..."
 mkdir -p logs
+echo "Installing and using correct NodeJS version..."
+nvm install v0.10.26 &> /dev/null
+nvm use v0.10.26 &> /dev/null
+sudo ln -sf ~/.nvm/v0.10.26/bin/node /usr/bin/node &> /dev/null
+sudo ln -sf ~/.nvm/v0.10.26/bin/node /usr/local/bin/node &> /dev/null
 sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
 sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
 EOLENVSETUP
@@ -418,8 +438,17 @@ if [ -d "$TMP_APP_DIR/.meteor/local" ]; then
     sudo rm -r .meteor/local
 fi
 # bundle
-(unset GIT_DIR; mrt update --repoPort=80)
+(unset GIT_DIR; mrt install)
 # Why unset? https://github.com/oortcloud/meteorite/pull/165
+
+# Use NVM to install and use correct version of node
+# Do this before bundle command so that npm updates work
+echo "Installing and using correct NodeJS version..."
+nvm install $NODE_VERSION &> /dev/null
+nvm use $NODE_VERSION &> /dev/null
+sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/bin/node &> /dev/null
+sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/local/bin/node &> /dev/null
+
 meteor bundle bundle.tgz
 
 # Extract the bundle into the BUNDLE_DIR, and then delete the .tgz file
@@ -459,13 +488,6 @@ if [ -d "$TMP_APP_DIR" ]; then
 fi
 
 cd $WWW_APP_DIR
-
-# Use NVM to install and use correct version of node
-echo "Installing and using correct NodeJS version..."
-nvm install $NODE_VERSION &> /dev/null
-nvm use $NODE_VERSION &> /dev/null
-sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/bin/node &> /dev/null
-sudo ln -sf ~/.nvm/$NODE_VERSION/bin/node /usr/local/bin/node &> /dev/null
 
 # Try to stop the node app using forever, in case it's already running
 echo "Starting or restarting the $1 environment of $APP_NAME on the EC2 server..."
