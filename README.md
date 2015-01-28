@@ -1,6 +1,6 @@
 # deploymeteor
 
-The deploymeteor script makes it as easy as possible to deploy one or more meteor apps to a standard Amazon EC2 server running the latest Amazon Linux AMI. It can be used to set up the server and to set up individual app environments on the server. Each app is hosted on a port that you specify, but the script also automatically sets up a node proxy server on port 80, which serves the correct app based on hostname.
+The deploymeteor script makes it as easy as possible to deploy one or more meteor apps to a standard Amazon EC2 server running the latest Amazon Linux or Ubuntu AMI. It can be used to set up the server and to set up individual app environments on the server. Each app is hosted on a port that you specify, but the script also automatically sets up a node proxy server on port 80, which serves the correct app based on hostname.
 
 ## Install deploymeteor
 
@@ -12,8 +12,8 @@ $ sudo -H curl https://raw.githubusercontent.com/aldeed/deploymeteor/master/inst
 
 ## Setting Up the Server
 
-1. Launch a new Amazon Linux EC2 server and make note of its hostname. You can deploy multiple meteor apps/websites to this one server. Make sure to enable SSH (port 22) and HTTP (port 80). You might want to open additional ports or port ranges for connecting directly to your meteor apps.
-2. SSH into the EC2 server and enter `sudo visudo`. Near the bottom, press I to switch to insert mode and insert a ! before `requiretty`. This is necessary for the deploymeteor script to work correctly. Press ESC and enter `:w!`. Now enter `:q` to quit.
+1. Launch a new EC2 server and make note of its hostname. You can deploy multiple meteor apps/websites to this one server. Make sure to enable SSH (port 22) and HTTP (port 80). You might want to open additional ports or port ranges for connecting directly to your meteor apps.
+2. If your server is an Amazon Linux (not Ubuntu) AMI, SSH into the EC2 server and enter `sudo visudo`. Near the bottom, press I to switch to insert mode and insert a ! before `requiretty`. This is necessary for the deploymeteor script to work correctly. Press ESC and enter `:w!`. Now enter `:q` to quit.
 3. On your workstation, open a Terminal session and enter `deploymeteor prepserver`. Answer the prompts. The host is the one you noted in step 1 and the key file is the one you downloaded while setting up the EC2 server.
 
 You may now use this server to host one or more meteor apps. You never need to run `deploymeteor prepserver` for this server again, but you may do so whenever you want to ensure that the server is running the latest versions of node, meteor, etc.

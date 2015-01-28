@@ -1,10 +1,6 @@
 #!/bin/bash
 
-HOME_DIR=/home/ec2-user
-NODEPROXY_DIR=$HOME_DIR/nodeproxy
 PWD=`pwd`
-SCRIPTPATH="$HOME/.deploymeteor"
-APPS_DIR=$HOME_DIR/meteorapps
 APP_NAME=${PWD##*/}
 
 if [ -z "$1" ]; then
@@ -23,7 +19,7 @@ fi
 
 #prompt for info needed by both prepserver and environment deploy
 echo
-echo "Enter the hostname or IP address of the Amazon Linux EC2 server."
+echo "Enter the hostname or IP address of the EC2 server."
 echo "Examples: 11.111.11.111 or ec2-11-111-11-111.us-west-2.compute.amazonaws.com"
 if [ -z "$LAST_APP_HOST" ]; then
 	echo "Default (press ENTER): No default"
@@ -32,6 +28,30 @@ else
 fi
 read -e -p "Host: " APP_HOST
 APP_HOST=${APP_HOST:-$LAST_APP_HOST}
+
+DEFAULT_DISTRO='amazon'
+echo
+echo "Enter the AMI type (of Linux)"
+echo "Examples: ubuntu or amazon"
+if [ -z "$LAST_DISTRO" ]; then
+	echo "Default (press ENTER): $DEFAULT_DISTRO"
+else
+	echo "Default (press ENTER): $LAST_DISTRO"
+fi
+read -e -p "Distro: " DISTRO
+DISTRO=$(echo ${DISTRO:-$LAST_DISTRO} | tr A-Z a-z)
+
+# Use known Amazon defaults for usernames (defaulting to Amazon Linux style)
+case "$DISTRO" in
+    'ubuntu') REMOTE_USER='ubuntu' ;;
+           *) REMOTE_USER='ec2-user' ;;
+esac
+REMOTE_HOME="/home/$REMOTE_USER"
+SCRIPTPATH="$HOME/.deploymeteor"
+# Trailing slash prevents scp renaming script if initial setup went wrong...
+NODEPROXY_DIR=$REMOTE_HOME/nodeproxy/
+APPS_DIR=$REMOTE_HOME/meteorapps
+
 echo
 echo "Enter the path to your EC2 .pem file on this machine."
 if [ -z "$LAST_EC2_PEM_FILE" ]; then
@@ -46,9 +66,10 @@ EC2_PEM_FILE=${EC2_PEM_FILE:-$LAST_EC2_PEM_FILE}
 cat > $PWD/.deploymeteor.config <<ENDCAT
 LAST_APP_HOST=$APP_HOST
 LAST_EC2_PEM_FILE=$EC2_PEM_FILE
+LAST_DISTRO=$DISTRO
 ENDCAT
 
-SSH_HOST="ec2-user@$APP_HOST"
+SSH_HOST="$REMOTE_USER@$APP_HOST"
 SSH_OPT="-i $EC2_PEM_FILE"
 
 case "$1" in
@@ -56,18 +77,29 @@ prepserver)
     echo
     echo "Preparing server..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL
-    cd $HOME_DIR
-    echo "Installing prerequisites..."
-    sudo yum install -q -y gcc gcc-c++ make git openssl-devel freetype-devel fontconfig-devel &> /dev/null
+    cd $REMOTE_HOME
 
-    #install node
-    echo "Installing Node and NPM..."
-    sudo yum install -q -y npm --enablerepo=epel &> /dev/null
+    if [ "$DISTRO" = 'ubuntu' ]; then
+        echo "Installing Node and NPM (Ubuntu)..."
+        sudo apt-get install git nodejs mongodb
+        # Hack the legacy node setup in
+        sudo ln -sf /usr/bin/nodejs /usr/bin/node
+        sudo npm install -g npm
+        echo "Installing latest NVM..."
+        curl -s https://raw.githubusercontent.com/creationix/nvm/v0.18.0/install.sh | bash
+    else
+        echo "Installing prerequisites..."
+        sudo yum install -q -y gcc gcc-c++ make git openssl-devel freetype-devel fontconfig-devel &> /dev/null
 
-    #install nvm
-    echo "Installing or updating NVM..."
-    sudo -H npm install -g nvm &> /dev/null
-    
+        #install node
+        echo "Installing Node and NPM..."
+        sudo yum install -q -y npm --enablerepo=epel &> /dev/null
+        #install nvm
+        echo "Installing or updating NVM..."
+        sudo -H npm install -g nvm &> /dev/null
+    fi
+
+
     #install forever
     echo "Installing or updating Forever..."
     sudo -H npm install -g forever &> /dev/null
@@ -216,9 +248,7 @@ restart)
         echo "Restarting nodeproxy..."
         echo "Installing and using correct NodeJS version..."
         nvm install 0.10.29
-        nvm use 0.10.29
-        sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/bin/node
-        sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/local/bin/node
+        nvm use 0.10.29 && (sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/bin/node; sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/local/bin/node)
         sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         echo "Done"
@@ -444,10 +474,7 @@ fi
 # Use NVM to install and use correct version of node
 # Do this before bundle command so that npm updates work
 echo "Installing and using correct NodeJS version..."
-nvm install $NODE_VERSION
-nvm use $NODE_VERSION
-sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/bin/node
-sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/local/bin/node
+nvm install $NODE_VERSION && nvm use $NODE_VERSION && (sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/bin/node; sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/local/bin/node)
 
 echo "Bundling..."
 meteor bundle --directory "$BUNDLE_DIR"
@@ -499,16 +526,12 @@ rm tmp-post-receive &> /dev/null
 
 echo "Creating the restart script and sending it to the EC2 server..."
 touch tmp-restartapp
-chmod
 cat > tmp-restartapp <<ENDCAT5
 #!/bin/sh
 
 # Use NVM to install and use correct version of node
 echo "Installing and using correct NodeJS version..."
-nvm install $NODE_VERSION
-nvm use $NODE_VERSION
-sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/bin/node
-sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/local/bin/node
+nvm install $NODE_VERSION && nvm use $NODE_VERSION && (sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/bin/node; sudo ln -sf ~/.nvm/v$NODE_VERSION/bin/node /usr/local/bin/node)
 
 # Try to stop the node app using forever, in case it's already running
 echo "Starting or restarting this app environment on the EC2 server..."
