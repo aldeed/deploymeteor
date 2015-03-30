@@ -1,13 +1,9 @@
 var httpProxy = require('http-proxy'),
+    http = require('http'),
     fs = require('fs');
 
-var options = {
-    maxSockets: 100000,
-    hostnameOnly: true,
-    router: {}
-};
-
 var nodeProxyDir = __dirname;
+var map = {};
 fs.readdir(nodeProxyDir, function(err, files) {
     if (err) {
         console.log('Error: ' + err);
@@ -20,19 +16,35 @@ fs.readdir(nodeProxyDir, function(err, files) {
             data = fs.readFileSync(nodeProxyDir + '/' + file, 'utf8');
             data = JSON.parse(data);
             for (var name in data) {
-                options["router"][name] = data[name];
+                map[name] = data[name];
             }
         }
     }
     
     //create proxy server
-    var server = httpProxy.createServer(options);
-    
+    var proxy = httpProxy.createProxyServer();
+
     //start proxy server
-    server.listen(80, function() {
-        console.log('Node Proxy Server started with options:', options);
-        // Downgrade the process to run as the ec2-user group and user now that it's bound to privileged ports.
-        process.setgid('ec2-user');
-        process.setuid('ec2-user');
+    var server = http.createServer(function(req, res) {
+        proxy.web(req, res, {
+          target: 'http://' + map[req.headers.host]
+        });
     });
+
+    //
+    // Listen to the `upgrade` event and proxy the
+    // WebSocket requests as well.
+    //
+    server.on('upgrade', function (req, socket, head) {
+      proxy.ws(req, socket, head, {
+        target: 'ws://' + map[req.headers.host]
+      });
+    });
+
+    server.listen(80);
+
+    console.log('Node Proxy Server started with:', map);
+    // Downgrade the process to run as the ec2-user group and user now that it's bound to privileged ports.
+    process.setgid('ec2-user');
+    process.setuid('ec2-user');
 });
