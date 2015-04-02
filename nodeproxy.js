@@ -24,6 +24,17 @@ fs.readdir(nodeProxyDir, function(err, files) {
     //create proxy server
     var proxy = httpProxy.createProxyServer();
 
+    proxy.on('error', function (error, req, res) {
+        var json;
+        console.log('proxy error', error);
+        if (!res.headersSent) {
+            res.writeHead(500, { 'content-type': 'application/json' });
+        }
+
+        json = { error: 'proxy_error', reason: error.message };
+        res.end(JSON.stringify(json));
+    });
+
     //start proxy server
     var server = http.createServer(function(req, res) {
         proxy.web(req, res, {
