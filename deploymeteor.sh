@@ -222,10 +222,10 @@ restartproxy)
     echo "Restarting nodeproxy..."
     ssh -t $SSH_OPT $SSH_HOST <<EOL3
     echo "Installing and using correct NodeJS version..."
-    nvm install 0.10.29
-    nvm use 0.10.29
-    sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/bin/node
-    sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/local/bin/node
+    nvm install 0.12.2
+    nvm use 0.12.2
+    sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/bin/node
+    sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/local/bin/node
     sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
     sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js
 EOL3
@@ -247,8 +247,10 @@ restart)
         done
         echo "Restarting nodeproxy..."
         echo "Installing and using correct NodeJS version..."
-        nvm install 0.10.29
-        nvm use 0.10.29 && (sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/bin/node; sudo ln -sf ~/.nvm/v0.10.29/bin/node /usr/local/bin/node)
+        nvm install 0.12.2
+        nvm use 0.12.2
+        sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/bin/node
+        sudo ln -sf ~/.nvm/v0.12.2/bin/node /usr/local/bin/node
         sudo forever stop $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         sudo forever start -l $NODEPROXY_DIR/logs/forever.log -o $NODEPROXY_DIR/logs/out.log -e $NODEPROXY_DIR/logs/err.log -a -s $NODEPROXY_DIR/nodeproxy.js &> /dev/null
         echo "Done"
