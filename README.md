@@ -1,5 +1,7 @@
 # deploymeteor
 
+NOTE: I'm not maintaining this script, but I will accept pull requests if you are using it and would like to contribute fixes. I recommend that you check out [Meteor Up](https://github.com/arunoda/meteor-up), [Modulus](https://modulus.io/), [Docker/Kubernetes](https://bulletproofmeteor.com/architecture/deploying-meteor-apps-into-a-kubernetes-cluster), etc.
+
 The deploymeteor script makes it as easy as possible to deploy one or more meteor apps to a standard Amazon EC2 server running the latest Amazon Linux or Ubuntu AMI. It can be used to set up the server and to set up individual app environments on the server. Each app is hosted on a port that you specify, but the script also automatically sets up a node proxy server on port 80, which serves the correct app based on hostname.
 
 ## Install deploymeteor
